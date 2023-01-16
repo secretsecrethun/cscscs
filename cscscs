@@ -1,0 +1,1234 @@
+# PYTHON MODULE : BOOK.py
+
+import pymysql as cntr , datetime as __dt , matplotlib.pyplot as plt
+from random import shuffle
+from tempfile import mktemp
+from os import system , startfile
+
+__db = cntr.connect(host = 'localhost' , user = 'root' , passwd = '' , database = 'book_shop')
+__cur = __db.cursor()
+__db.autocommit(True)
+
+
+#Function to check is it leap year
+is_leapyear = lambda year : year % 4 == 0
+
+
+#Function to get last date of month
+def last_month(month , year):
+    if month in (1,3,5,7,8,10,12) : return 31
+    elif month == 2 and is_leapyear(year) : return 29
+    elif month == 2 : return 28
+    else : return 30
+   
+
+clrscreen = lambda : system("cls")
+
+
+
+
+
+
+def view_stock() :
+    __cur.execute("select Book_No , Book_Name , Available_Stock from stock")
+    data = __cur.fetchall()
+    print("Book Number\tBook Name\tStock")
+    for row in data : print(row[0] , '\t\t' , row[1] , '\t' , row[2])      
+
+           
+def add_stock() :            
+    print('Add Stock'.center(89 , '='))
+    bno = unique_book_no()
+    if bno :
+        print("Book Number : " , bno)
+    else : bno = int(input("Enter book number : "))
+    bname = input("Enter the Book\'s Name : ")
+    auth = input("Enter the Author of the Book : ")
+    publ = input("Enter the Publisher of the Book : ")
+    cost = eval(input("Enter the Cost per Book : "))
+    stock = int(input("Enter the Quantity purchased : "))
+    __cur.execute("insert into stock values ({} , '{}' , '{}' , '{}' , {} , {} , {} , '{}')".format(bno , bname , auth , publ , cost , stock , 0, __dt.date.today()))
+    print("Inserted Sucessfully !!!")
+   
+
+       
+def add_user() :
+    user = input("Enter the user name : ")
+    passwd = input("Enter a Password : ")
+    passwd2 = input("Enter Password to confirm : ")
+    if passwd == passwd2 :
+        __cur.execute("insert into users values('{}' , '{}')".format(user , passwd))
+        print("Created Successfully!!!")
+    elif passwd != passwd2 : print("You've entered different passwords")
+   
+
+       
+
+
+def purchase_book() :
+    print('Purchase')
+    cname = input("Enter the Customer Name : ")
+    phno = int(input("Enter the phone number : "))
+    bno = int(input("Enter book number : "))
+    bname = input("Enter the name of the book : ")
+    cost = eval(input("Enter the cost of the book : "))
+    __cur.execute("insert into purchased values({} , '{}')".format(bno , __dt.date.today()))
+    __cur.execute("update stock set qty_purchased = qty_purchased + 1 where Book_No = {}".format(bno))
+    __cur.execute("update stock set Available_Stock = Available_Stock - 1 where Book_No = {}".format(bno))
+    print("Bought Successfully")
+    q = '''Book Shop\nName : {}\nPhone No : {}\nBook Number : {}\nBook Name : {}\nCost : {}\nDate Of Purchase : {}'''.format(cname , phno , bno , bname , cost , __dt.date.today())
+    filename = mktemp('.txt')
+    open(filename , 'w').write(q)
+    startfile(filename , 'print')
+    __cur.execute('select Book_Name , Book_No , Author from stock where Available_Stock = 0')
+    if __cur.rowcount == 1 :
+        print("STOCK OF ")
+        print("Book Name : " , __cur.fetchall()[0][0])
+        print("Book Number : " , __cur.fetchall()[0][1])
+        print("Author : " , __cur.fetchall()[0][2])
+        print("EXHAUSTED")
+        __cur.execute('delete from stock where Available_Stock = 0')
+   
+       
+       
+def unique_book_no () :
+    __cur.execute("select max(Book_No) from stock")
+    data = __cur.fetchall()
+    if bool(data[0][0]) :
+        L1 = [x for x in range((data[0][0] + 1) , (data[0][0] + 10000))]
+        shuffle(L1)
+        return L1.pop(0)
+    else : return False
+
+
+def view_sales () :
+    print('Overall Sales This Month')        
+    __cur.execute("select distinct(s.Book_Name) , s.qty_purchased from stock s , purchased p where s.Book_No = p.Book_No and p.purchased_on between '{year}-{month}-01' and '{year}-{month}-{date}'".format(year = __dt.date.today().year , month = __dt.date.today().month , date = last_month(__dt.date.today().month , __dt.date.today().year)))
+    data = __cur.fetchall()
+    L1 , L2 = [] , []
+    for row in data :
+        L1.append(row[0])
+        L2.append(row[1])
+    plt.bar(L1 , L2)
+    plt.xlabel('Books')
+    plt.ylabel('Sales')
+    plt.title('Sales')
+    plt.show()
+   
+
+   
+def login():
+    user = input("Enter the username : ")
+    pwd = input("Enter the password : ")
+    __cur.execute("Select * from users where (username = '{}' and password = '{}')".format(user , pwd))
+    if __cur.rowcount : return True
+
+
+
+
+
+
+def update_stock() :
+    bno = int(input("Enter the book number : "))
+    __cur.execute("select Book_Name , Available_Stock from stock where Book_No = {}".format(bno))
+    data = __cur.fetchall()
+    print("Book Name : " , data[0][0])
+    print("Available Stock : " , data[0][1])
+    stock = int(input("Enter the new stock purchased : "))
+    __cur.execute("update stock set Available_Stock = Available_Stock + {}".format(stock))
+    print("Updated Successfully")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# PYTHON MODULE : Tables_in_mysql
+
+import pymysql as cntr
+
+db = cntr.connect(host = 'localhost' , user = 'root' , passwd = '')
+db.autocommit(True)
+cur = db.cursor()
+cur.execute("create database if not exists book_shop")
+cur.execute("use book_shop")
+cur.execute("create table stock\
+            (Book_No bigint primary key,\
+Book_Name varchar(255),\
+Author varchar(255),\
+Publisher varchar(255),\
+Cost_per_Book float,\
+Available_Stock bigint,\
+qty_purchased bigint,\
+purchased_on date)")
+cur.execute("create table users(username varchar(255) , password varchar(255) , check (username <> 'ADMIN'))")
+cur.execute("create table purchased (Book_no bigint , purchased_on date , foreign key(Book_no) references stock(Book_No))")
+cur.execute("create unique index Book_Index on stock(Book_No)")
+cur.execute("insert into users values('admin' , 'admin@123')")
+print("Database and Tables created successfully")
+c = input("Press any key to continue---->")
+cur.close()
+db.close()
+
+
+
+
+
+
+
+# PYTHON MODULE : main
+
+c = 'y'
+while c.lower() == 'y' :
+    print("Book Shop Management".center(89 , '='))
+    print('1. Register')
+    print('2. Login')
+    print('3. Exit')
+    choice4 = int(input("Enter the serial number of your choice : "))
+    if choice4 == 1 :
+        print(‘\n’)
+        clrscreen()
+        add_user()
+    elif choice4 == 2 :
+        print(‘\n’)
+        clrscreen()
+        if login() :
+            print(‘\n’)
+            clrscreen
+            C = 'y'
+            while C.lower() == 'y' :
+                print(‘\n’)
+                clrscreen()
+                print("Book Shop Management".center(89 , '='))
+                print("1. Book Stock")
+                print("2. Book Selling")
+                print("3. Exit")
+                choice = int(input("Enter the serial number of your choice : "))
+                if choice == 1 :
+                    print(‘\n’)
+                    clrscreen()
+                    print("Book Book".center(89 , '='))
+                    print("1. Add a new Stock")
+                    print("2. View all Stock")
+                    print("3. Update an existing Stock")
+                    print("4. Exit")
+                    choice2 = int(input("Enter the choice : "))
+                    if choice2 == 1 :
+                        print(‘\n’)
+                        clrscreen()
+                        add_stock()
+                    elif choice2 == 2 :
+                        print(‘\n’)
+                        clrscreen()
+                        view_stock()
+                    elif choice2 == 3 :
+                        print(‘\n’)
+                        clrscreen()
+                        update_stock()
+                    elif choice2 == 4 :
+                        print("Good Bye")
+                        break
+                    else : print("INVALID CHOICE")
+                elif choice == 2 :
+                    print(‘\n’)
+                    clrscreen()
+                    print('Book Selling/Purchasing'.center(89 , '='))
+                    print('1. Purchase a book')
+                    print('2. View Sales this month')
+                    print("3. Exit")
+                    choice3 = int(input("Enter your choice : "))
+                    if choice3 == 1 :
+                        print(‘\n’)
+                        clrscreen()
+                        purchase_book()                  
+                    elif choice3 == 2 :
+                        print(‘\n’)
+                        clrscreen()
+                        view_sales()
+                    elif choice3 == 3 :
+                        print("Good Bye")
+                        break
+                    else : print("INVALID CHOICE")
+                elif choice == 3 :
+                    print("Good Bye")
+                    break
+                else : print("INVALID CHOICE")
+                C = input("Do you want to continue (y/[n]) : ")
+            else : print("Good Bye")
+        else :
+            print("Either your username or password is incorrect")            
+    elif choice4 == 3 :
+        print("Good Bye")
+        break
+    else : print("INVALID CHOICE")
+    c = input("Do you want to return to main menu (y/[n]) : ")
+else : print("Good Bye")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+------------PRACTICAL-----------------------------
+
+
+
+
+
+
+
+#Q1 - Capitalizing first letter
+def convert(data):
+    for i in data.split():
+        j = i[0]
+        j = j.upper()
+        i = j + i[1:]
+        print(i, end = ' ')
+
+iinput = input('Enter: ')
+convert(iinput)
+
+*****************************************************************
+#Q2 - Dice
+import random
+print('Integer')
+print(random.randint(1,6))
+
+
+*****************************************************************
+
+#Q3 - Armstrong
+no = input('Enter')
+sum = 0
+exp = len(no)
+for j in no:
+    add = int(j) ** exp
+    sum += add
+if sum == int(num):
+    print('It is armstrong')
+else:
+    print('Not an armstrong')
+
+
+*****************************************************************
+
+#Q4 - prime
+def prime(num):
+    for i in range(2, num):
+        if num % i == 0:
+            print('Not prime')
+            break
+        else:
+            print('It is a prime number')
+
+inputt = int(input('Enter'))
+prime(inputt)
+
+
+*****************************************************************
+
+#Q-5 palindrome
+def palind(user_input):
+    reverse = user_input[::-1]
+    if user_input.lower() == reverse.lower():
+        print('yes it is a palindrome')
+    else:
+        print('Not a palindrome')
+
+user = input('Enter')
+palind(user)
+
+
+*****************************************************************
+
+#Q-6 vowel, consonant count
+inputt = input('Enter')
+v = c = u = l = 0
+vow = ['a','e','i','o','u','A','E','I','O','U']
+
+for i in inputt.split():
+    for j in i:
+        if j.isalpha():
+            if j in vow:
+                v += 1
+            else:
+                c += 1
+        if j.isupper():
+            u += 1
+        elif j.islower():
+            l += 1
+
+print(f"vowels: {v}, Consonants: {c}, upper: {u}, lower: {l}")
+
+
+*****************************************************************
+
+#Q-7 storing info
+
+from csv import writer
+
+def enter_data():
+    i = 0
+    choice =int(input('Length'))
+    openn = open('abc.csv', 'w', newline = '\n')
+    dt = writer(openn)
+    while i < choice:
+        openn = open('abc.csv', 'w')
+        a = input('Admission number: ')
+        r = input('roll no')
+        n = input('Enter name')
+        m = input('enter marks')
+        dt.writerow([a,r,n,d])
+        print('added')
+        i += 1
+
+    openn.close()
+
+from csv import reader
+
+def read():
+    readd = open('abc.csv','r')
+    dt = reader(readd)
+    data = list(dt)
+    readd.close()
+    print('data entered')
+    for i in data:
+        print(i)
+
+enter_data()
+read()
+
+
+*****************************************************************
+
+
+#Q-8 fibonacci
+def fibbo():
+    n = int(input('Enter terms'))
+    a = 0
+    b = 1
+    c = a+b
+    print(a,b,c, end = '')
+    i = 0
+    while i < n:
+        a = b
+        b = c
+        c = a+b
+        print(c, end = '')
+        i += 1
+fibbo()
+
+
+*****************************************************************
+
+#Q-9story.txt
+
+open_file = open('D:/story.txt', 'w')
+lines = int(input('No of lines'))
+print('Press enter for next line')
+for i in range(lines):
+    story = input('Enter your story here')
+    open_file.write(story + '\n')
+open_file.close()
+
+print('Displaying whole content')
+story_open = open('D:\story.txt', 'r')
+full = story_open.readlines()
+for f in full:
+    print(f, end = '')
+story_open.close()
+
+print('Line by line')
+oopen = open('D:\story.txt',  'r')
+h = oopen.readline()
+print(h, end=  '')
+while h:
+    h = oopen.readline()
+    print(h, end = '')
+oopen.close()
+
+
+*****************************************************************
+
+#Q-10 count
+
+openn = open('D:\story.txt', 'r')
+reading = openn.readlines()
+u = l = v = c = 0
+vow = ['a','e','i','o','u','A','E','I','O','U']
+for i in reading:
+    for j in i:
+        if j.isalpha():
+            if j in vow:
+                v += 1
+            else:
+                c += 1
+        if j.isupper():
+            u += 1
+        elif j.islower():
+            l += 1
+print(f"upper {u}, lower {l} vowels {v} consonants {c}")
+
+
+*****************************************************************
+
+#Q-11 starts with a
+
+one = open('D:/kamal.txt', 'r')
+two = open('D:/remaining.txt', 'w')
+three = open('D:/kms.txt', 'w')
+readd = one.readlines
+for i in readd:
+    if i[0] == 'a' or i[0] == 'A':
+        three.write(i)
+    else:
+        two.write(i)
+one.close()
+two.close()
+three.close()
+
+
+one = open('D:/remaining.txt', 'r')
+two = open('D:/kms.txt', 'r')
+open_one = one.readlines()
+open_two = two.readlines()
+
+print('text without A')
+for i in open_one:
+    print(i, end= '')
+print('text with A')
+for j in open_two:
+    print(j, end = '')
+one.close()
+two.close()
+
+
+*****************************************************************
+
+#Q-12
+import pickle
+of = open('students.dat', 'wb')
+student_data = []
+record = int(input('Enter length'))
+for i in range(record):
+    r = input('Enter rollno')
+    n = input('Enter name')
+    f = input('Enter fees')
+    student_data.append([r, n, f])
+pickle.dump(student_data, of)
+of.close()
+
+oo = open('students.dat', 'rb')
+search = input('Roll no for search')
+output = pickle.load(oo)
+for o in output:
+    if user_search in o:
+        print('roll no', o[0])
+        print('name', o[1])
+        print('fees', o[2])
+        break
+else:
+    print('not found')
+
+oo.close()
+
+
+*****************************************************************
+
+
+#Q-13
+#Insert and read
+def file_insert():
+    import pickle
+    fo = open('students.dat', 'wb')
+    student_data = []
+    data = int(input('Enter length'))
+    for i in range(data):
+        r = input('enter rollno')
+        n = input('enter name')
+        m = input('enter marks')
+        student_data.append([r, n, m])
+    pickle.dump(student_data, fo)
+    fo.close()
+
+
+def file_read():
+    import pickle
+    reading = open('students.dat', 'rb')
+    read_data= pickle.load(reading)
+    for i in read_data:
+        print('rollno', i[0])
+        print('name', i[1])
+        print('marks', i[2])
+    reading.close()
+
+#update
+
+def file_update():
+    import pickle
+    roll = input('Enter rollno ')
+    fo = open('students.dat', 'wb')
+    filedata = pickle.load(fo)
+    data=  []
+    for i in filedata:
+        if roll in i[0]:
+            found = 1
+            i[0] = input('Enter new rollno')
+            i[1] = input('Enter new name')
+            i[2] = input('Enter new marks')
+        data.append(i)
+    if found == 1:
+        fo.seek(0)
+        pickle.dump(data, fo)
+        print('updated')
+    else:
+        print('does not exist')
+    fo.close()
+
+
+#search and delete
+
+def file_search():
+    import pickle
+    fo = open('students.dat', 'rb')
+    search = input('Enter rollno')
+    file_data = pickle.load(fo)
+    for i in file_data:
+        if i[0] == search:
+            print('name', i[1])
+            print('marks', i[2])
+            print('record found')
+            break
+        else:
+            print('not found')
+    fo.close()
+
+def file_delete():
+    import pickle
+    fo = open('students.dat', 'rb')
+    file_data = pickle.load(fo)
+    fo.close()
+    delete = input('enter roll no to delete')
+    fo = open('students.dat', 'wb')
+    data = []
+    for i in file_data:
+        if delete == i[0]:
+            continue
+        data.append(i)
+    pickle.dump(data, fo)
+    fo.close()
+    
+
+
+*****************************************************************
+
+#Q-14
+
+#(a)
+from csv import writer
+
+def single_record():
+    fo = open('student.csv', 'w')
+    one = input('enter detail-1')
+    two = input('enter detail-2')
+    three = input('entee detail-3')
+    dt = writer(fo)
+    dt.writerow([one, two, three])
+    print('added')
+    fo.close()
+
+#(b)
+from csv import writer
+def all():
+    fo = open('student.csv', 'w')
+    dt = writer(fo)
+    while True:
+        first = input('enter deail1')
+        two = input('enter detail2')
+        three = input('enter detail3')
+        dt.writerow([first. two, three])
+        imp = input('more?')
+        if imp == 'y' or imp == 'Y':
+            print('***')
+        else:
+            print('ok')
+            break
+    fo.close()
+
+#(c)
+from csv import reader
+
+def read_content():
+    fo = open('student.csv', 'r', newline = '\n')
+    dt = reader(fo)
+    data = list(dt)
+    for i in data:
+        print(i)
+    fo.close()
+
+
+*****************************************************************
+
+#Q-15 searching password
+
+import csv
+
+df user_data():
+    fo = open('school.csv', 'w')
+    dt = csv.writer(fo)
+    while True:
+        userid = input('Enter userid')
+        passw = input('Enter password')
+        dt.writerow([userid, passw])
+        print('To add more ---1, exit ---0')
+        inp = input()
+        if inp == 1:
+            print('***')
+        else:
+            break
+
+    fo.close()
+
+def read_content():
+    fo = open('school.csv', 'r', newline = '\n')
+    dt = csv.reader(fo)
+    search = input('Enter userid')
+    data = list(dt)
+    fo.close()
+    for i in ata:
+        if i[0] == search:
+            print('password is,', i[1] )
+            break
+    else:
+        print('none found')
+
+
+user_data()
+read_content()
+
+
+*****************************************************************
+
+
+#Q-16 stack using list
+
+#1. push
+list = [1, 2, 3, 4, 5, 6, 7]
+def pushh():
+    global list
+    while True:
+        user_data = int(input('Enter data: '))
+        list.append(user_data)
+        user_choice = input('More?')
+        if user_choice.lower() == 'n':
+            break
+    print('The new stack: ', list)
+
+#2. pop
+    def popp():
+        global list
+        print(list)
+        user_pop = int(input('Enter length: '))
+        for i in range(user_pop):
+            print('popped element: ', list.pop())
+            if list == []:
+                print('Underflow')
+        print('Stack left: ', list)
+
+#3. display
+
+def display():
+    global list
+    print(list, '\n \n')
+    if list == []:
+        print('Empty stack')
+
+#4
+
+while True:
+    print('stack is: ', list)
+    print('1. push \n2. pop \n3. display \n4. exit')
+    user_choice = int(input('Enter your choice: '))
+    if user_choice == 1:
+        pushh()
+    elif user_choice == 2:
+        popp()
+    elif user_choice == 3:
+        display()
+    elif user_choice == 4:
+        break
+    else:
+        print('Enter valid one')
+
+
+*****************************************************************
+
+#Q-17 dictionary
+
+diction = {'tia' : 47, 'jason' : 90, 'rayya' : 85, 'saket' : 52, 'vanessa': 99, 'jaaku' : 66}
+def pushh(stack,ele):
+    stack.append(ele)
+
+name_stack = []
+for i in diction:
+    if diction[i] > 75:
+        pushh(name_stack, i)
+print('>75')
+for name in name_stack:
+    print(name)
+
+def pop(stack):
+    print('after pop:')
+    for loop in range(len(stack)):
+        print(stack.pop(), end = '')
+
+pop(name_stack)
+
+
+
+*****************************************************************
+
+#Q-18 Alam and his list
+
+integers = [2, 4, 6, 11, 45, 64, 78, 29, 89, 44]
+
+def push(edit, ele):
+    edit.append(ele)
+
+stack = []
+for i in integers:
+    if i % 2 == 0:
+        push(stack, i)
+
+print('stack with even integers: ', stack)
+
+def push(edit):
+    print('after pop')
+    for i in range(len(edit)):
+        print(edit.pop(), end = '')
+push(stack)
+
+
+
+*****************************************************************
+
+
+#Q-19
+#create
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = ''
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('CREATE DATABASE practical')
+
+#show
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = ''
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('SHOW DATABASES')
+for i in mycursor:
+    print(i)
+
+
+#create
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('CREATE TABLE classrec(Rollno int primary key, Name varchar(30))')
+
+#insert
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+data = 'INSERT INTO classrec(Rollno, Name) VALUES(%s, %s)'
+into = (1001, 'James')
+mycursor.execute(data, into)
+
+mydb.commit()
+print(mycursor.rowcount, 'Record inserted!')
+
+#update
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+data = 'UPDATE classrec SET Name = 'Samantha' where Rollno = 1001'
+mycursor.execute(data)
+
+mydb.commit()
+
+
+#delete
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+data = 'DELETE FROM classrec WHERE Rollno = 1001'
+mycursor.execute(data)
+
+mydb.commit()
+
+#display
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('SELECT * FROM classrec')
+output = mycursor.fetchall()
+
+for i in output:
+    print(i)
+
+
+
+#exit
+
+mycursor.close()
+
+
+*****************************************************************
+
+#Q-20 inserting a record
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'practical'
+    )
+
+mycursor = mydb.cursor()
+
+data = 'INSERT INTO classrec(Rllno, Name) VALUES(%s, %s)'
+into = (1002, 'Jakal')
+mycursor.execute(data, into)
+
+mydb.commit()
+print(mycursor.rowcount, 'Record inserted!')
+
+
+*****************************************************************
+
+#Q-21 display first three rows
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('SELECT * FROM student')
+output = mycursor.fetchmany(3)
+
+for i in output:
+    print(i)
+
+
+*****************************************************************
+
+#Q-22 diaply all records
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('SELECT * FROM student')
+output = mycursor.fetchall()
+
+for i in output:
+    print(i)
+
+
+
+*****************************************************************
+
+#Q-23 performing all functions
+
+#insert
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+data = 'INSERT INTO Employee(empno, empname) VALUES(%s, %s)'
+into = (101, 'Umeeko', 50000)
+mycursor.execute(data, into)
+
+mydb.commit()
+print(mycursor.rowcount, 'Record inserted!')
+
+
+#display
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('SELECT * FROM Employee')
+output = mycursor.fetchall()
+
+for i in output:
+    print(i)
+
+
+#update
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute("UPDATE Employee SET sal = 70000 WHERE ename = 'Umeeko'")
+mydb.commit()
+
+print(mycursor.rowcount, 'Updated')
+
+# delete
+
+
+import mysql.connector as connect_sq
+
+mydb = connect_sq.connect(
+    host = 'localhost',
+    user = 'root',
+    password = '',
+    database = 'School'
+    )
+
+mycursor = mydb.cursor()
+
+mycursor.execute('DELETE FROM Employee WHERE empno = 101')
+
+mycursor.execute(data)
+mydb.commit()
+
+print(mycursor.rowcount, 'Deleted')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+SQL----------------
+
+SQL QUERIES
+
+1. create database School;
+
+2. use School;
+
+3. create table Dept(
+Deptno int primary key, 
+Deptname varchar,
+Loc varchar
+);
+
+4.insert into Dept values
+(10, 'Sales', 'Delhi'),
+(20, 'HR', 'Pune'),
+(30, 'Purchase', 'Agra');
+
+5. create table Employee(
+Eno integer PRIMARY KEY,
+Ename varchar(15) not null,
+Gender char(1),
+Doj date, 
+Salary decimal(10,2)
+Deptno int FOREIGN KEY
+);
+
+6. Desc Employee;
+
+7. insert into Employee values
+(1, 'Anuj', 'M', '2001-01-01', 50000, 10),
+(2, 'Devansh', 'M', '', 55000, 20),
+(3, 'Mansi', 'F', '', 60000, 50),
+(4, 'Hevaa', 'M', '2002-04-09', 70000, 15),
+(5, 'Naitik', 'F', '2003-04-05', 82000, 13);
+
+8. select * from Employee;
+
+9. select Eno, Ename, from Employee where gender = 'M';
+
+10. select ename from Employee where salary between 40000 and 60000;
+
+11. select ename from Employee where ename like 'A%' ;
+
+12. select ename from Employee where ename like '__r%' ;
+
+13. select * from Employee order by ename ; 
+
+14. select * from Employee order by salary desc ; 
+
+15. Alter table Employee
+add column City;
+
+16. Alter table Employee 
+drop column City;
+
+17. select count(gender) from Employee where gender = 'M' ;
+select count(gender) from Employee where gender = 'F' ;
+
+18. select * from Employee where salary is null ;
+
+19. ALTER TABLE Dept
+ADD FOREIGN KEY (Deptno) REFERENCES Employee(deptno) ;
+
+20. select * from Dept;
+
+21. Select Employee.Eno, Employee.Ename, Employee.Salary, Dept.Deptno, Dept.Deptname, from Dept natural join Employee ;
+
+22. Select Employee.Eno, Employee.Ename, Employee.Salary, Dept.Deptno, Dept.Deptname, form Dept natural join Employee where 
+Employee.Salary > 50000 ;
+
+23. select * from Employee where doj > '2011-01-01' ; 
+
+24. Delete from Employee where salary = 0;
+
+25. Update Employee
+set salary = salary + salary*0.3 ; 
